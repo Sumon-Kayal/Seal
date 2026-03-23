@@ -329,7 +329,11 @@ object Downloader {
                         delay(3000)
                     }
                 }
-                .invokeOnCompletion {
+                .invokeOnCompletion { cause ->
+                    // Only proceed if the job completed normally (cause == null).
+                    // A non-null cause means the job was cancelled or failed, so we
+                    // must not start a new download.
+                    if (cause != null) return@invokeOnCompletion
                     videoInfo?.let {
                         downloadVideoWithInfo(info = videoInfo, preferences = preferences)
                     } ?: getInfoAndDownload(url, preferences)
@@ -508,7 +512,9 @@ object Downloader {
         mutableTaskState.update { it.copy(progress = 100f, progressText = "") }
         clearProgressState(isFinished = true)
         updateState(State.Idle)
-        clearErrorState()
+        // Do NOT clear error state here: for playlist downloads, errors from individual
+        // items would be wiped before the user ever sees them. Error state is only
+        // cleared explicitly (e.g. when the user dismisses the error or starts a new task).
     }
 
     /**
